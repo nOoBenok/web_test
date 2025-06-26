@@ -20,13 +20,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install selenium pytest webdriver-manager pytest-html
 
-    - name: Install Chrome
+    - name: Install Chrome and ChromeDriver
       run: |
         sudo apt-get update
-        sudo apt-get install -y chromium-browser
-
-    - name: Install ChromeDriver
-      run: |
+        sudo apt-get install -y wget unzip
+        
+        # Установка Google Chrome (не Chromium)
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        
+        # Установка ChromeDriver
         CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1)
         CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
         wget -N https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip
@@ -48,3 +53,41 @@ jobs:
       with:
         name: test-report
         path: report.html
+2. Обновленный файл test_add_student.py:
+python
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+import tempfile
+import shutil
+import pytest
+import os
+
+@pytest.fixture(scope="function")
+def driver():
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    
+    # Уникальный каталог для данных пользователя
+    user_data_dir = tempfile.mkdtemp()
+    options.add_argument(f"--user-data-dir={user_data_dir}")
+    
+    # Явное указание пути к ChromeDriver
+    service = Service(executable_path="/usr/local/bin/chromedriver")
+    
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.implicitly_wait(10)
+    
+    yield driver
+    
+    # Очистка после теста
+    driver.quit()
+    shutil.rmtree(user_data_dir, ignore_errors=True)
+
+# Ваши тесты остаются без изменений
+def test_add_student_positive_full(driver):
+    """Позитивный тест: добавление студента со всеми полями"""
+    driver.get("http://158.160.87.146:5000/add-user")
