@@ -1,0 +1,46 @@
+name: Python Selenium Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install Chrome and ChromeDriver
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser
+        CHROME_VERSION=$(google-chrome --version | cut -d ' ' -f 3 | cut -d '.' -f 1)
+        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+        wget -N https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip
+        unzip chromedriver_linux64.zip
+        sudo mv chromedriver /usr/local/bin/chromedriver
+        sudo chmod +x /usr/local/bin/chromedriver
+
+    - name: Run tests
+      run: |
+        python -m pytest test_add_student.py -v --html=report.html
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-report
+        path: report.html
